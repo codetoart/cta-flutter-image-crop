@@ -13,7 +13,7 @@ class CustomRenderObjectWidget extends SingleChildRenderObjectWidget {
     @required Widget child,
     @required this.aspectRatio,
     this.key,
-    this.backgroundColor: Colors.white,
+    this.backgroundColor: Colors.black,
     this.dimColor: const Color.fromRGBO(0, 0, 0, 0.8),
     this.shape,
   }) : super(key: key, child: child);
@@ -127,7 +127,7 @@ class CustomRender extends RenderBox
     if (child != null) {
       final Offset tmp = (size - forcedSize) as Offset;
       context.paintChild(child, offset + tmp / 2);
-
+  
       final clipPath = _getDimClipPath();
 
       context.pushClipPath(
@@ -136,7 +136,7 @@ class CustomRender extends RenderBox
         bounds,
         clipPath,
         (context, offset) {
-          context.canvas.drawRect(bounds, Paint()..color = Colors.white);
+          context.canvas.drawRect(bounds, Paint()..color = dimColor);
         },
       );
     }

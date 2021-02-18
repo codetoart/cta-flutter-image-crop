@@ -22,7 +22,7 @@ class Cropper extends StatefulWidget {
     @required this.child,
     @required this.cropController,
     this.dimColor: const Color.fromRGBO(0, 0, 0, 0.8),
-    this.backgroundColor: Colors.white,
+    this.backgroundColor: Colors.black,
     this.helper,
     this.shape: BoxShape.rectangle,
     this.onChangedInfo,
@@ -36,16 +36,45 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
   final _key = GlobalKey();
   final _parentKey = GlobalKey();
   final _repaintBoundaryKey = GlobalKey();
+  final _repaintBoundaryBoxKey = GlobalKey();
 
   double _previousScale = 1;
   Offset _previousOffset = Offset.zero;
   Offset _startOffset = Offset.zero;
   Offset _endOffset = Offset.zero;
 
+  Future<ui.Image> _crop(double pixelRatio) {
+    final rrb = _repaintBoundaryKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary;
+
+    final rrb1 = _repaintBoundaryBoxKey.currentContext?.findRenderObject()
+        as RenderRepaintBoundary;
+
+    OffsetLayer offsetLayer = rrb.layer as OffsetLayer;
+
+    final forcedSize = getSizeToFitByAspectRatio(
+      rrb1.size.aspectRatio,
+      rrb.constraints.biggest.width,
+      rrb.constraints.biggest.height,
+    );
+
+    final center = Offset(
+      rrb.constraints.biggest.width / 2,
+      rrb.constraints.biggest.height / 2,
+    );
+    Rect rect = Rect.fromCenter(
+      center: center,
+      width: forcedSize.width,
+      height: forcedSize.height,
+    );
+    return offsetLayer.toImage(rect, pixelRatio: pixelRatio);
+  }
+
   @override
   void initState() {
     super.initState();
     print('initstate crop widget');
+    widget.cropController._cropCallback = _crop;
   }
 
   @override
@@ -66,10 +95,7 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
             ..translate(o.dx, o.dy, 0)
             ..rotateZ(r)
             ..scale(s, s, 1),
-          child: FittedBox(
-            child: widget.child,
-            fit: BoxFit.cover,
-          ),
+          child: widget.child,
         ),
       );
 
@@ -83,24 +109,27 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
         child: _buildInnerCanvas(),
       );
 
-      if (widget.helper == null) {
-        return repaint;
-      }
-
-      return Stack(
-        fit: StackFit.expand,
-        children: [repaint, widget.helper],
-      );
+      return repaint;
     } //end
 
     List<Widget> over = [
-      CustomRenderObjectWidget(
-        aspectRatio: widget.cropController._aspectRatio,
-        backgroundColor: widget.backgroundColor,
-        dimColor: widget.dimColor,
-        shape: widget.shape,
-        child: _buildRepaintBoundary(),
-      ),
+      Stack(
+        children: [
+          _buildRepaintBoundary(),
+          Positioned.fill(
+            child: CustomRenderObjectWidget(
+              aspectRatio: widget.cropController._aspectRatio,
+              backgroundColor: Colors.transparent,
+              dimColor: widget.dimColor,
+              shape: widget.shape,
+              child: RepaintBoundary(
+                key: _repaintBoundaryBoxKey,
+                child: widget.helper,
+              ),
+            ),
+          ),
+        ],
+      )
     ];
 
     return ClipRect(
