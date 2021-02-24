@@ -39,7 +39,6 @@ class RotatedRect {
   }
 }
 
-/// Normalize
 Offset _normalize(Offset o) {
   final double l = o.distance;
   if (l == 0.0) {
@@ -49,12 +48,11 @@ Offset _normalize(Offset o) {
   return Offset(o.dx * d, o.dy * d);
 }
 
-/// Inner item.
 double _dot(Offset a, Offset b) {
   return a.dx * b.dx + a.dy * b.dy;
 }
 
-Offset line(Offset pointA, Offset pointB, Offset pointC) {
+Offset lineTo(Offset pointA, Offset pointB, Offset pointC) {
   final lineDir = _normalize(pointB - pointA);
   var v = pointC - pointA;
   var d = _dot(v, lineDir);
@@ -74,33 +72,10 @@ double side(Offset a, Offset b, Offset p) {
   return d.sign * sqrt(d.abs());
 }
 
-Size getSizeToFit(double imageWidth, double imageHeight, double containerWidth,
-    double containerHeight) {
-  // get the aspect ratios in case we need to expand or shrink to fit
-  var imageAspectRatio = imageWidth / imageHeight;
-  var targetAspectRatio = containerWidth / containerHeight;
-
-  // no need to adjust the size if current size is square
-  var adjustedWidth = containerWidth;
-  var adjustedHeight = containerHeight;
-
-  // get the larger aspect ratio of the two
-  // if aspect ratio is 1 then no adjustment needed
-  if (imageAspectRatio > targetAspectRatio) {
-    adjustedHeight = containerWidth / imageAspectRatio;
-  } else if (imageAspectRatio < targetAspectRatio) {
-    adjustedWidth = containerHeight * imageAspectRatio;
-  }
-
-  // set the adjusted size (same if square)
-  return Size(adjustedWidth, adjustedHeight);
-}
-
 Size getSizeToFitByAspectRatio(
     double imageAspectRatio, double containerWidth, double containerHeight) {
   var targetAspectRatio = containerWidth / containerHeight;
 
-  // no need to adjust the size if current size is square
   var adjustedWidth = containerWidth;
   var adjustedHeight = containerHeight;
 

@@ -6,26 +6,21 @@ import 'package:flutter/rendering.dart';
 
 import './crop_helper.dart';
 import './custom_render_object_widget.dart';
-import './state_info.dart';
 
 class Cropper extends StatefulWidget {
   final Widget child;
   final CropController cropController;
-  final Color backgroundColor;
-  final Color dimColor;
-  final Widget helper;
+  final Color faintColor;
+  final Widget rectView;
   final BoxShape shape;
-  final ValueChanged<StateInfo> onChangedInfo;
 
   Cropper({
     Key key,
     @required this.child,
     @required this.cropController,
-    this.dimColor: const Color.fromRGBO(0, 0, 0, 0.8),
-    this.backgroundColor: Colors.black,
-    this.helper,
+    this.faintColor: const Color.fromRGBO(0, 0, 0, 0.6),
+    this.rectView,
     this.shape: BoxShape.rectangle,
-    this.onChangedInfo,
   }) : super(key: key);
 
   @override
@@ -38,10 +33,13 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
   final _repaintBoundaryKey = GlobalKey();
   final _repaintBoundaryBoxKey = GlobalKey();
 
-  double _previousScale = 1;
-  Offset _previousOffset = Offset.zero;
+  double _lastScale = 1;
+  Offset _lastFocalPoint = Offset.zero;
   Offset _startOffset = Offset.zero;
   Offset _endOffset = Offset.zero;
+
+  AnimationController _controller;
+  CurvedAnimation _animation;
 
   Future<ui.Image> _crop(double pixelRatio) {
     final rrb = _repaintBoundaryKey.currentContext?.findRenderObject()
@@ -73,46 +71,112 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-    print('initstate crop widget');
     widget.cropController._cropCallback = _crop;
+
+    widget.cropController.addListener(_centerImageWithAnimation);
+
+    //apply animation.
+    _controller = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: 200),
+    );
+
+    _animation =
+        CurvedAnimation(curve: Curves.fastOutSlowIn, parent: _controller);
+    _animation.addListener(() {
+      if (_animation.isCompleted) {
+        _centerImageNoAnimation();
+      }
+      setState(() {});
+    });
+  }
+
+  void _updateImage() {
+    final sz = _key.currentContext.size;
+    final s =
+        widget.cropController._scale * widget.cropController._getMinScale();
+    final w = sz.width;
+    final h = sz.height;
+    final canvas = Rect.fromLTWH(0, 0, w, h);
+    _startOffset = widget.cropController._offset;
+    _endOffset = widget.cropController._offset;
+  }
+
+  void _centerImageWithAnimation() {
+    _updateImage();
+
+    widget.cropController._offset = _endOffset;
+
+    if (_controller.isCompleted || _controller.isAnimating) {
+      _controller.reset();
+    }
+    _controller.forward();
+
+    setState(() {});
+  }
+
+  void _centerImageNoAnimation() {
+    _updateImage();
+
+    _startOffset = _endOffset;
+    widget.cropController._offset = _endOffset;
+
+    setState(() {});
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) {
+    widget.cropController._offset += details.focalPoint - _lastFocalPoint;
+    _lastFocalPoint = details.focalPoint;
+    widget.cropController._scale = _lastScale * details.scale;
+    _startOffset = widget.cropController._offset;
+    _endOffset = widget.cropController._offset;
+
+    setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    print('build crop widget');
-    final r = widget.cropController._rotation / 180.0 * pi;
-    final s =
+    final rotateValue = widget.cropController._rotation / 180.0 * pi;
+    final scaleValue =
         widget.cropController._scale * widget.cropController._getMinScale();
-    final o = Offset.lerp(_startOffset, _endOffset, 1.0);
+    final offsetValue = Offset.lerp(_startOffset, _endOffset, 1.0);
 
-    Widget _buildInnerCanvas() {
-      print('_buildInnerCanvas');
-      final ip = IgnorePointer(
+    Widget _buildCanvas() {
+      return IgnorePointer(
         key: _key,
         child: Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
-            ..translate(o.dx, o.dy, 0)
-            ..rotateZ(r)
-            ..scale(s, s, 1),
+            ..translate(offsetValue.dx, offsetValue.dy, 0)
+            ..rotateZ(rotateValue)
+            ..scale(scaleValue, scaleValue, 1),
           child: widget.child,
         ),
       );
-
-      return ip;
     } //end
 
     Widget _buildRepaintBoundary() {
-      print('_buildRepaintBoundary');
       final repaint = RepaintBoundary(
         key: _repaintBoundaryKey,
-        child: _buildInnerCanvas(),
+        child: _buildCanvas(),
       );
 
       return repaint;
     } //end
 
-    List<Widget> over = [
+    final gestureDetector = GestureDetector(
+      onScaleStart: (details) {
+        _lastFocalPoint = details.focalPoint;
+        _lastScale = max(widget.cropController._scale, 1);
+      },
+      onScaleUpdate: _onScaleUpdate,
+      onScaleEnd: (details) {
+        widget.cropController._scale = max(widget.cropController._scale, 1);
+        _centerImageWithAnimation();
+      },
+    );
+
+    List<Widget> stackList = [
       Stack(
         children: [
           _buildRepaintBoundary(),
@@ -120,11 +184,11 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
             child: CustomRenderObjectWidget(
               aspectRatio: widget.cropController._aspectRatio,
               backgroundColor: Colors.transparent,
-              dimColor: widget.dimColor,
               shape: widget.shape,
+              faintColor: widget.faintColor,
               child: RepaintBoundary(
                 key: _repaintBoundaryBoxKey,
-                child: widget.helper,
+                child: widget.rectView,
               ),
             ),
           ),
@@ -132,11 +196,13 @@ class _CropperState extends State<Cropper> with TickerProviderStateMixin {
       )
     ];
 
+    stackList.add(gestureDetector);
+
     return ClipRect(
       key: _parentKey,
       child: Stack(
         fit: StackFit.expand,
-        children: over,
+        children: stackList,
       ),
     );
   }
