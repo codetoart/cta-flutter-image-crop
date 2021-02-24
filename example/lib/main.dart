@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -38,6 +40,8 @@ enum AppState {
 class _MyHomePageState extends State<MyHomePage> {
   AppState state;
   File imageFile;
+  double aspectRatio;
+  ui.Image croppedImage;
 
   @override
   void initState() {
@@ -51,9 +55,13 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: Center(
-        child: imageFile != null ? Image.file(imageFile) : Container(),
-      ),
+      body: croppedImage != null
+          ? Center(
+              child: RawImage(image: croppedImage),
+            )
+          : Center(
+              child: imageFile != null ? Image.file(imageFile) : Container(),
+            ),
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.deepPurple,
         onPressed: () {
@@ -79,6 +87,19 @@ class _MyHomePageState extends State<MyHomePage> {
       return Container();
   }
 
+  Future<void> getImageFromPath(File imageFile) async {
+    Completer<ImageInfo> completer = Completer();
+    var img = FileImage(imageFile);
+    img
+        .resolve(ImageConfiguration())
+        .addListener(ImageStreamListener((ImageInfo info, bool _) {
+      completer.complete(info);
+    }));
+    ImageInfo imageInfo = await completer.future;
+    final imageP = imageInfo.image;
+    aspectRatio = imageP.width / imageP.height;
+  }
+
   Future<Null> _pickImage() async {
     final picker = ImagePicker();
     final pickedImageFile = await picker.getImage(
@@ -87,6 +108,7 @@ class _MyHomePageState extends State<MyHomePage> {
     );
 
     if (pickedImageFile != null) {
+      await getImageFromPath(File(pickedImageFile.path));
       setState(() {
         imageFile = File(pickedImageFile.path);
         state = AppState.picked;
@@ -99,9 +121,17 @@ class _MyHomePageState extends State<MyHomePage> {
       builder: (context) {
         return ic.Crop(
           imageFile: imageFile,
+          imageAspectRatio: aspectRatio,
         );
       },
-    ));
+    )).then((image) {
+      setState(() {
+        if (image != null) {
+          croppedImage = image;
+          state = AppState.cropped;
+        }
+      });
+    });
     // setState(() {
     //   imageFile = null;
     //   state = AppState.free;
@@ -110,6 +140,7 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void _clearImage() {
     setState(() {
+      croppedImage = null;
       imageFile = null;
       state = AppState.free;
     });

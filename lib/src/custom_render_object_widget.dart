@@ -5,7 +5,7 @@ import './crop_helper.dart';
 class CustomRenderObjectWidget extends SingleChildRenderObjectWidget {
   final Key key;
   final double aspectRatio;
-  final Color dimColor;
+  final Color faintColor;
   final Color backgroundColor;
   final BoxShape shape;
 
@@ -14,7 +14,7 @@ class CustomRenderObjectWidget extends SingleChildRenderObjectWidget {
     @required this.aspectRatio,
     this.key,
     this.backgroundColor: Colors.black,
-    this.dimColor: const Color.fromRGBO(0, 0, 0, 0.8),
+    this.faintColor: const Color.fromRGBO(0, 0, 0, 0.6),
     this.shape,
   }) : super(key: key, child: child);
 
@@ -22,7 +22,7 @@ class CustomRenderObjectWidget extends SingleChildRenderObjectWidget {
   RenderObject createRenderObject(BuildContext context) {
     return CustomRender()
       ..aspectRatio = aspectRatio
-      ..dimColor = dimColor
+      ..dimColor = faintColor
       ..backgroundColor = backgroundColor
       ..shape = shape;
   }
@@ -45,8 +45,8 @@ class CustomRenderObjectWidget extends SingleChildRenderObjectWidget {
       needsPaint = true;
     }
 
-    if (renderObject.dimColor != dimColor) {
-      renderObject.dimColor = dimColor;
+    if (renderObject.dimColor != faintColor) {
+      renderObject.dimColor = faintColor;
       needsPaint = true;
     }
 
@@ -98,11 +98,8 @@ class CustomRender extends RenderBox
         center: center, width: forcedSize.width, height: forcedSize.height);
 
     final path = Path();
-    if (shape == BoxShape.circle) {
-      path.addOval(rect);
-    } else if (shape == BoxShape.rectangle) {
-      path.addRect(rect);
-    }
+
+    path.addRect(rect);
 
     path.addRect(Rect.fromLTWH(0.0, 0.0, size.width, size.height));
     path.fillType = PathFillType.evenOdd;
@@ -114,7 +111,6 @@ class CustomRender extends RenderBox
 
   @override
   void paint(PaintingContext context, Offset offset) {
-    print('paint');
     final bounds = offset & size;
 
     if (backgroundColor != null) {
@@ -127,7 +123,7 @@ class CustomRender extends RenderBox
     if (child != null) {
       final Offset tmp = (size - forcedSize) as Offset;
       context.paintChild(child, offset + tmp / 2);
-  
+
       final clipPath = _getDimClipPath();
 
       context.pushClipPath(
