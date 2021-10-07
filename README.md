@@ -1,6 +1,6 @@
 # image_cropper
 
-**A flutter package to scale and crop images. Optinally set aspect ratio of cropping area**
+**A flutter package to scale and crop images. Optionally set aspect ratio of cropping area**
 
 <img alt="Demo" src="https://raw.githubusercontent.com/codetoart/cta-flutter-image-crop/develop/readme-assets/image_crop_demo.gif" height="500">
 
